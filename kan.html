@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kanban Board</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0e0f;
+    --surface: #181819;
+    --surface2: #212123;
+    --surface3: #2a2a2d;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.15);
+    --text: #f0ede8;
+    --text-muted: #888;
+    --text-faint: #444;
+    --accent: #e8ff47;
+    --accent-dim: rgba(232,255,71,0.12);
+    --red: #ff5c5c;
+    --blue: #5c9fff;
+    --teal: #3ecfb2;
+    --amber: #ffb347;
+    --purple: #b47fff;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --col-width: 280px;
+  }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: auto;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 28px 16px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-mark {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 3px;
+    padding: 6px;
+  }
+
+  .logo-mark span {
+    background: #000;
+    border-radius: 1px;
+  }
+
+  .logo-mark span:nth-child(1) { height: 100%; }
+  .logo-mark span:nth-child(2) { height: 60%; align-self: start; }
+  .logo-mark span:nth-child(3) { height: 80%; align-self: end; }
+
+  .logo-text {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .stats-bar {
+    display: flex;
+    gap: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .stat { display: flex; align-items: center; gap: 5px; }
+  .stat-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  .btn {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong);
+    cursor: pointer;
+    transition: all .15s;
+    background: var(--surface2);
+    color: var(--text);
+  }
+
+  .btn:hover { background: var(--surface3); border-color: var(--border-strong); }
+
+  .btn-accent {
+    background: var(--accent);
+    color: #000;
+    border-color: transparent;
+    font-weight: 700;
+  }
+
+  .btn-accent:hover { background: #d4ea2a; border-color: transparent; }
+
+  /* ── BOARD ── */
+  .board-wrap {
+    padding: 24px 28px 40px;
+    overflow-x: auto;
+  }
+
+  .board {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    min-width: max-content;
+  }
+
+  /* ── COLUMN ── */
+  .col {
+    width: var(--col-width);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    transition: border-color .15s;
+  }
+
+  .col.drag-over {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+
+  .col-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 14px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .col-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .col-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    flex: 1;
+  }
+
+  .col-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: var(--surface3);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  .wip-indicator {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-faint);
+    padding: 0 14px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .wip-indicator.over { color: var(--red); }
+
+  .cards-list {
+    padding: 10px;
+    min-height: 80px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .col-footer {
+    padding: 8px 10px 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .add-btn {
+    width: 100%;
+    background: none;
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px;
+    cursor: pointer;
+    transition: all .15s;
+    letter-spacing: 0.3px;
+  }
+
+  .add-btn:hover {
+    background: var(--surface2);
+    color: var(--text);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    cursor: grab;
+    user-select: none;
+    transition: transform .12s, border-color .12s, box-shadow .12s;
+    position: relative;
+    animation: cardIn .18s ease;
+  }
+
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .card:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+
+  .card:active { cursor: grabbing; }
+
+  .card.dragging {
+    opacity: 0.3;
+    transform: scale(0.96);
+  }
+
+  .card.done-card {
+    opacity: 0.5;
+  }
+
+  .card.done-card .card-title {
+    text-decoration: line-through;
+    color: var(--text-muted);
+  }
+
+  .card-priority {
+    width: 3px;
+    position: absolute;
+    left: 0; top: 8px; bottom: 8px;
+    border-radius: 0 2px 2px 0;
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+    line-height: 1.4;
+    padding-left: 8px;
+  }
+
+  .card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 8px;
+    padding-left: 8px;
+  }
+
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 500;
+    border: 1px solid transparent;
+  }
+
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 8px;
+  }
+
+  .assignee {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .avatar {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    color: #000;
+    flex-shrink: 0;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity .1s;
+  }
+
+  .card:hover .card-actions { opacity: 1; }
+
+  .card-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 3px 5px;
+    border-radius: 4px;
+    color: var(--text-muted);
+    font-size: 13px;
+    transition: all .1s;
+  }
+
+  .card-btn:hover { background: var(--surface3); color: var(--text); }
+  .card-btn.del:hover { color: var(--red); }
+
+  /* ── ADD COLUMN ── */
+  .add-col-btn {
+    width: 50px;
+    min-height: 80px;
+    background: var(--surface);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius);
+    cursor: pointer;
+    color: var(--text-faint);
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+    flex-shrink: 0;
+    align-self: flex-start;
+  }
+
+  .add-col-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    width: 420px;
+    max-width: 90vw;
+    padding: 28px;
+    animation: modalIn .2s ease;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(.95) translateY(10px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .modal h2 {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    letter-spacing: -0.3px;
+  }
+
+  .field { margin-bottom: 14px; }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s;
+  }
+
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    border-color: var(--accent);
+  }
+
+  .field textarea { resize: vertical; min-height: 70px; }
+
+  .field select option { background: var(--surface2); }
+
+  .tag-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tag-option {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all .1s;
+    opacity: 0.5;
+  }
+
+  .tag-option.selected { opacity: 1; }
+
+  .priority-picker {
+    display: flex;
+    gap: 6px;
+  }
+
+  .prio-btn {
+    flex: 1;
+    padding: 7px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    text-align: center;
+    transition: all .1s;
+  }
+
+  .prio-btn.selected { color: #000; border-color: transparent; font-weight: 700; }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty-col {
+    text-align: center;
+    padding: 20px 10px;
+    color: var(--text-faint);
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    margin: 0 10px;
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap {
+    padding: 0 14px 10px;
+  }
+
+  .progress-bar {
+    height: 2px;
+    background: var(--surface3);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 99px;
+    transition: width .4s ease;
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 99px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">
+      <span></span><span></span><span></span>
+    </div>
+    <div class="logo-text">kan<span>ban</span></div>
+  </div>
+
+  <div class="stats-bar" id="stats-bar"></div>
+
+  <div class="header-actions">
+    <button class="btn btn-accent" onclick="openModal()">+ New card</button>
+  </div>
+</header>
+
+<div class="board-wrap">
+  <div class="board" id="board"></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeIfOutside(event)">
+  <div class="modal">
+    <h2 id="modal-title">Add card</h2>
+
+    <div class="field">
+      <label>Title</label>
+      <input type="text" id="f-title" placeholder="What needs to be done?">
+    </div>
+
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="f-notes" placeholder="Optional description..."></textarea>
+    </div>
+
+    <div class="field">
+      <label>Column</label>
+      <select id="f-col"></select>
+    </div>
+
+    <div class="field">
+      <label>Assignee</label>
+      <input type="text" id="f-assignee" placeholder="Name">
+    </div>
+
+    <div class="field">
+      <label>Priority</label>
+      <div class="priority-picker" id="prio-picker">
+        <div class="prio-btn" data-p="low" style="--c:#3ecfb2" onclick="selectPrio(this)">Low</div>
+        <div class="prio-btn selected" data-p="medium" style="--c:#ffb347;background:#ffb347" onclick="selectPrio(this)">Medium</div>
+        <div class="prio-btn" data-p="high" style="--c:#ff5c5c" onclick="selectPrio(this)">High</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Tags</label>
+      <div class="tag-picker" id="tag-picker"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-accent" onclick="saveCard()">Save card</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TAG_DEFS = [
+  { id:'ui',      label:'UI/UX',    color:'#b47fff', bg:'rgba(180,127,255,0.15)' },
+  { id:'backend', label:'Backend',  color:'#5c9fff', bg:'rgba(92,159,255,0.15)' },
+  { id:'bug',     label:'Bug',      color:'#ff5c5c', bg:'rgba(255,92,92,0.15)' },
+  { id:'feature', label:'Feature',  color:'#3ecfb2', bg:'rgba(62,207,178,0.15)' },
+  { id:'docs',    label:'Docs',     color:'#ffb347', bg:'rgba(255,179,71,0.15)' },
+  { id:'test',    label:'Testing',  color:'#e8ff47', bg:'rgba(232,255,71,0.12)' },
+];
+
+const PRIO_COLORS = { low:'#3ecfb2', medium:'#ffb347', high:'#ff5c5c' };
+
+const AVATAR_COLORS = ['#e8ff47','#5c9fff','#3ecfb2','#b47fff','#ffb347','#ff5c5c'];
+
+let columns = [
+  { id:'todo',       title:'To Do',       dot:'#5c9fff', wip:null },
+  { id:'inprogress', title:'In Progress', dot:'#ffb347', wip:3 },
+  { id:'review',     title:'Review',      dot:'#b47fff', wip:2 },
+  { id:'done',       title:'Done',        dot:'#3ecfb2', wip:null },
+];
+
+let cards = [
+  { id:1, title:'Design login page',       notes:'',  col:'todo',       assignee:'Priya',  priority:'medium', tags:['ui'] },
+  { id:2, title:'Set up database schema',  notes:'',  col:'todo',       assignee:'Arjun',  priority:'high',   tags:['backend'] },
+  { id:3, title:'Write API documentation', notes:'',  col:'todo',       assignee:'Meena',  priority:'low',    tags:['docs'] },
+  { id:4, title:'Add dark mode toggle',    notes:'',  col:'todo',       assignee:'Dev',    priority:'low',    tags:['ui','feature'] },
+  { id:5, title:'Build search feature',    notes:'',  col:'inprogress', assignee:'Ravi',   priority:'high',   tags:['backend','feature'] },
+  { id:6, title:'Integrate payment API',   notes:'',  col:'inprogress', assignee:'Kiran',  priority:'high',   tags:['backend'] },
+  { id:7, title:'Responsive navbar',       notes:'',  col:'inprogress', assignee:'Priya',  priority:'medium', tags:['ui'] },
+  { id:8, title:'Homepage hero section',   notes:'',  col:'review',     assignee:'Meena',  priority:'medium', tags:['ui'] },
+  { id:9, title:'User auth flow',          notes:'',  col:'review',     assignee:'Arjun',  priority:'high',   tags:['backend','feature'] },
+  { id:10,title:'Project setup',           notes:'',  col:'done',       assignee:'Ravi',   priority:'low',    tags:['docs'] },
+  { id:11,title:'Wireframes approved',     notes:'',  col:'done',       assignee:'Priya',  priority:'low',    tags:['ui'] },
+];
+
+let nextId = 12;
+let dragging = null;
+let editingId = null;
+let selectedPrio = 'medium';
+let selectedTags = [];
+
+function avatarColor(name) {
+  let h = 0;
+  for (let c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function initials(name) {
+  return name.split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2) || '?';
+}
+
+function tagEl(tag) {
+  const def = TAG_DEFS.find(t=>t.id===tag);
+  if (!def) return '';
+  return `<span class="tag" style="background:${def.bg};color:${def.color};border-color:${def.color}33">${def.label}</span>`;
+}
+
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  columns.forEach(col => {
+    const colCards = cards.filter(c => c.col === col.id);
+    const wipOver = col.wip && colCards.length > col.wip;
+
+    const div = document.createElement('div');
+    div.className = 'col';
+    div.dataset.col = col.id;
+
+    div.innerHTML = `
+      <div class="col-head">
+        <div class="col-dot" style="background:${col.dot}"></div>
+        <div class="col-title">${col.title}</div>
+        <div class="col-badge">${colCards.length}</div>
+      </div>
+      ${col.wip ? `<div class="wip-indicator ${wipOver?'over':''}">${colCards.length}/${col.wip} WIP limit${wipOver?' ⚠ over limit':''}</div>` : ''}
+      ${col.id==='done' && colCards.length>0 ? `
+      <div class="progress-wrap">
+        <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+      </div>` : ''}
+      <div class="cards-list" id="list-${col.id}">
+        ${colCards.length===0 ? '<div class="empty-col">Drop cards here</div>' : colCards.map(c=>cardHTML(c,col.id)).join('')}
+      </div>
+      <div class="col-footer">
+        <button class="add-btn" onclick="openModal('${col.id}')">+ Add card</button>
+      </div>
+    `;
+
+    div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over'); });
+    div.addEventListener('dragleave', e => { if(!div.contains(e.relatedTarget)) div.classList.remove('drag-over'); });
+    div.addEventListener('drop', e => {
+      e.preventDefault();
+      div.classList.remove('drag-over');
+      if (dragging !== null) {
+        const c = cards.find(x=>x.id===dragging);
+        if (c) c.col = col.id;
+        dragging = null;
+        renderBoard(); updateStats();
+      }
+    });
+
+    board.appendChild(div);
+  });
+
+  // Add column button
+  const addCol = document.createElement('button');
+  addCol.className = 'add-col-btn';
+  addCol.title = 'Add column';
+  addCol.textContent = '+';
+  addCol.onclick = () => {
+    const name = prompt('Column name:');
+    if (!name) return;
+    const colors = ['#ff5c5c','#b47fff','#e8ff47','#5c9fff'];
+    columns.push({ id: 'col_'+Date.now(), title: name, dot: colors[columns.length % colors.length], wip: null });
+    renderBoard(); updateStats();
+  };
+  board.appendChild(addCol);
+
+  attachDragEvents();
+  updateStats();
+}
+
+function cardHTML(c, colId) {
+  const isDone = colId === 'done';
+  const pc = PRIO_COLORS[c.priority] || '#888';
+  const av = avatarColor(c.assignee||'?');
+  return `
+    <div class="card ${isDone?'done-card':''}" draggable="true" data-id="${c.id}">
+      <div class="card-priority" style="background:${pc}"></div>
+      <div class="card-title">${escHtml(c.title)}</div>
+      ${c.tags.length ? `<div class="card-tags">${c.tags.map(tagEl).join('')}</div>` : ''}
+      <div class="card-footer">
+        <div class="assignee">
+          <div class="avatar" style="background:${av}">${initials(c.assignee||'?')}</div>
+          ${escHtml(c.assignee||'Unassigned')}
+        </div>
+        <div class="card-actions">
+          <button class="card-btn" title="Edit" onclick="editCard(${c.id})">✎</button>
+          <button class="card-btn del" title="Delete" onclick="deleteCard(${c.id})">✕</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function attachDragEvents() {
+  document.querySelectorAll('.card[data-id]').forEach(el => {
+    el.addEventListener('dragstart', () => {
+      dragging = parseInt(el.dataset.id);
+      setTimeout(() => el.classList.add('dragging'), 0);
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+    });
+  });
+}
+
+function updateStats() {
+  const total = cards.length;
+  const done = cards.filter(c=>c.col==='done').length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('stats-bar').innerHTML = `
+    <div class="stat"><div class="stat-dot" style="background:#5c9fff"></div>${cards.filter(c=>c.col==='todo').length} to do</div>
+    <div class="stat"><div class="stat-dot" style="background:#ffb347"></div>${cards.filter(c=>c.col==='inprogress').length} in progress</div>
+    <div class="stat"><div class="stat-dot" style="background:#3ecfb2"></div>${done} done</div>
+    <div class="stat" style="color:var(--accent)">${pct}% complete</div>
+  `;
+}
+
+// ── MODAL ──
+function buildModal(colId, card) {
+  // Populate column select
+  const sel = document.getElementById('f-col');
+  sel.innerHTML = columns.map(c=>`<option value="${c.id}" ${(colId||'todo')===c.id?'selected':''}>${c.title}</option>`).join('');
+
+  // Tag picker
+  const tp = document.getElementById('tag-picker');
+  tp.innerHTML = TAG_DEFS.map(t=>`
+    <div class="tag-option ${selectedTags.includes(t.id)?'selected':''}"
+      data-tag="${t.id}"
+      style="background:${t.bg};color:${t.color};border-color:${t.color}44"
+      onclick="toggleTag(this,'${t.id}')">
+      ${t.label}
+    </div>
+  `).join('');
+
+  // Priority
+  document.querySelectorAll('.prio-btn').forEach(b => {
+    b.classList.remove('selected');
+    b.style.background = '';
+    b.style.color = '';
+    if (b.dataset.p === selectedPrio) {
+      b.classList.add('selected');
+      b.style.background = PRIO_COLORS[selectedPrio];
+      b.style.color = '#000';
+    }
+  });
+}
+
+function openModal(colId, card) {
+  editingId = null;
+  selectedTags = [];
+  selectedPrio = 'medium';
+  document.getElementById('f-title').value = '';
+  document.getElementById('f-notes').value = '';
+  document.getElementById('f-assignee').value = '';
+  document.getElementById('modal-title').textContent = 'Add card';
+  buildModal(colId || columns[0].id, null);
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('f-title').focus(), 50);
+}
+
+function editCard(id) {
+  const c = cards.find(x=>x.id===id);
+  if (!c) return;
+  editingId = id;
+  selectedTags = [...c.tags];
+  selectedPrio = c.priority;
+  document.getElementById('f-title').value = c.title;
+  document.getElementById('f-notes').value = c.notes||'';
+  document.getElementById('f-assignee').value = c.assignee||'';
+  document.getElementById('modal-title').textContent = 'Edit card';
+  buildModal(c.col, c);
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function deleteCard(id) {
+  cards = cards.filter(c=>c.id!==id);
+  renderBoard();
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function closeIfOutside(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+function saveCard() {
+  const title = document.getElementById('f-title').value.trim();
+  if (!title) { document.getElementById('f-title').focus(); return; }
+  const colId = document.getElementById('f-col').value;
+  const assignee = document.getElementById('f-assignee').value.trim() || 'Unassigned';
+  const notes = document.getElementById('f-notes').value.trim();
+
+  if (editingId) {
+    const c = cards.find(x=>x.id===editingId);
+    if (c) { c.title=title; c.col=colId; c.assignee=assignee; c.notes=notes; c.tags=[...selectedTags]; c.priority=selectedPrio; }
+  } else {
+    cards.push({ id:nextId++, title, notes, col:colId, assignee, priority:selectedPrio, tags:[...selectedTags] });
+  }
+
+  closeModal();
+  renderBoard();
+}
+
+function toggleTag(el, tagId) {
+  if (selectedTags.includes(tagId)) {
+    selectedTags = selectedTags.filter(t=>t!==tagId);
+    el.classList.remove('selected');
+  } else {
+    selectedTags.push(tagId);
+    el.classList.add('selected');
+  }
+}
+
+function selectPrio(el) {
+  selectedPrio = el.dataset.p;
+  document.querySelectorAll('.prio-btn').forEach(b => {
+    b.classList.remove('selected');
+    b.style.background = '';
+    b.style.color = '';
+  });
+  el.classList.add('selected');
+  el.style.background = PRIO_COLORS[selectedPrio];
+  el.style.color = '#000';
+}
+
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+
+renderBoard();
+</script>
+</body>
+</html>
